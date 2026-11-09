@@ -55,7 +55,10 @@
   var p = v.play(); if (p && p.catch) p.catch(function () { v.muted = true; v.play().catch(function () { }); });
   var hideT; function poke() { bar.classList.remove('hide'); clearTimeout(hideT); hideT = setTimeout(function () { if (!v.paused) bar.classList.add('hide'); }, 2500); }
   ['mousemove', 'touchstart', 'keydown'].forEach(function (n) { document.addEventListener(n, poke, { passive: true }); }); poke();
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.key === 'Backspace') location.href = back; });
+  // opened as a tab from aoo.sh: Back closes it (returning to the site); otherwise go to the site
+  document.getElementById('back').addEventListener('click', function (e) { if (window.opener || history.length < 2) { e.preventDefault(); window.close(); setTimeout(function () { location.href = back; }, 200); } });
+  // a new pick from the site reuses this tab ('aoo-play'): load it
+  window.addEventListener('hashchange', function () { location.reload(); });
 })();
 </script>
 </body>
