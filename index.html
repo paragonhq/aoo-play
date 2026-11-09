@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>AOO</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; overflow: hidden; }
+  video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; }
+  .bar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 16px 20px; padding-top: max(16px, env(safe-area-inset-top)); background: linear-gradient(rgba(0,0,0,.7), rgba(0,0,0,0)); transition: opacity .3s; z-index: 2; }
+  .bar.hide { opacity: 0; pointer-events: none; }
+  .back { display: inline-flex; align-items: center; height: 40px; padding: 0 16px 0 12px; border-radius: 20px; background: rgba(255,255,255,.14); color: #fff; text-decoration: none; font-weight: 600; flex: none; }
+  .back svg { width: 18px; height: 18px; margin-right: 6px; }
+  .t { margin-left: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; max-width: 320px; color: rgba(255,255,255,.8); z-index: 1; }
+</style>
+</head>
+<body>
+<video id="v" controls playsinline autoplay></video>
+<div class="bar" id="bar"><a class="back" id="back" href="https://aoo.sh/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</a><div class="t" id="t"></div></div>
+<div class="msg" id="msg" hidden></div>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
+<script>
+/* AOO http player: the https site can't play http:// streams, so it hands them here (plain http).
+   Everything comes in the #hash, which never reaches a server. Video goes straight from the provider. */
+(function () {
+  var v = document.getElementById('v'), msg = document.getElementById('msg'), bar = document.getElementById('bar');
+  var o = {};
+  try { o = JSON.parse(decodeURIComponent(location.hash.slice(1))); } catch (e) { }
+  history.replaceState(null, '', location.pathname); // keep the login out of history and screenshots
+  var back = /^https:\/\/([\w-]+\.)*aoo\.sh(\/|$)/.test(o.back || '') ? o.back : 'https://aoo.sh/';
+  document.getElementById('back').href = back;
+  document.getElementById('t').textContent = o.title || '';
+  if (o.title) document.title = o.title + ' · AOO';
+  function say(t) { msg.textContent = t; msg.hidden = false; }
+  if (!/^https?:\/\//.test(o.u || '')) { say('Nothing to play. Go back and pick something.'); return; }
+  var start = +o.start || 0;
+  function seekStart() { if (start > 0) { try { v.currentTime = start; } catch (e) { } } }
+  var hlsUrl = /\.m3u8(\?|#|$)/i.test(o.u);
+  if (hlsUrl && window.Hls && Hls.isSupported()) {
+    var hls = new Hls({ startPosition: start || -1 }), tries = 0;
+    hls.on(Hls.Events.ERROR, function (e, d) {
+      if (!d.fatal) return;
+      if (d.type === Hls.ErrorTypes.NETWORK_ERROR && tries++ < 3) { setTimeout(function () { hls.startLoad(); }, 800 * tries); return; }
+      if (d.type === Hls.ErrorTypes.MEDIA_ERROR && tries++ < 3) { hls.recoverMediaError(); return; }
+      say('This stream isn’t responding. It may be offline.');
+    });
+    hls.loadSource(o.u); hls.attachMedia(v);
+  } else {
+    v.src = o.u; v.addEventListener('loadedmetadata', seekStart, { once: true });
+    v.addEventListener('error', function () { say(v.error && v.error.code === 4 ? 'Your browser can’t play this format. Try it on your TV.' : 'This stream couldn’t be played.'); });
+  }
+  var p = v.play(); if (p && p.catch) p.catch(function () { v.muted = true; v.play().catch(function () { }); });
+  var hideT; function poke() { bar.classList.remove('hide'); clearTimeout(hideT); hideT = setTimeout(function () { if (!v.paused) bar.classList.add('hide'); }, 2500); }
+  ['mousemove', 'touchstart', 'keydown'].forEach(function (n) { document.addEventListener(n, poke, { passive: true }); }); poke();
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.key === 'Backspace') location.href = back; });
+})();
+</script>
+</body>
+</html>
